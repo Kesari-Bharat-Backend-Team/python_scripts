@@ -6,10 +6,49 @@ from turfpy import measurement
 from geojson import Point, Feature
 import numpy
 import math
+#Slack Alert Module 
+import json
+import sys
+import random
+import requests
 
+
+
+def slackAlert(message = 'This is a test message'):
+
+    
+    url = "https://hooks.slack.com/services/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"
+    # message = ("")
+    title = (f"New Incoming Message :zap:")
+    slack_data = {
+        "username": "NotificationBot",
+        "icon_emoji": ":satellite:",
+        #"channel" : "#somerandomcahnnel",
+        "attachments": [
+            {
+                "color": "#9733EE",
+                "fields": [
+                    {
+                        "title": title,
+                        "value": message,
+                        "short": "false",
+						'name': "himanshu"
+						
+                    }
+                ]
+            }
+        ]
+    }
+    byte_length = str(sys.getsizeof(slack_data))
+    headers = {'Content-Type': "application/json", 'Content-Length': byte_length}
+    response = requests.post(url, data=json.dumps(slack_data), headers=headers)
+    if response.status_code != 200:
+        raise Exception(response.status_code, response.text)
 
 
 class LineData:
+
+
 
 	def __init__(self):
 
@@ -80,7 +119,8 @@ class LineData:
 		except Exception as e:
 
 			print(str(e))
-			print(records)
+			# print(records)
+			print("we got excepitpn ")
 
 	
 
@@ -90,9 +130,11 @@ class LineData:
 
 
 		#chhattisgarh gujarat_westbengal_
-		all_state_name = [ 'punjab', 'andhrapradesh', 'arunachalpradesh', 'assam', 'bihar', 'jharkhand', 'karnataka', 'kerala', 'ladakh', 'madhyapradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram', 'nagaland', 'odisha', 'rajasthan', 'sikkim',  'telangana', 'tripura', 'uttarakhand', 'uttarpradesh']
+		# all_state_name = [ 'punjab', 'andhrapradesh', 'arunachalpradesh', 'assam', 'bihar', 'jharkhand', 'karnataka', 'kerala', 'ladakh', 'madhyapradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram', 'nagaland', 'odisha', 'rajasthan', 'sikkim',  'telangana', 'tripura', 'uttarakhand', 'uttarpradesh']
 
-		for table_name in  ['gujarat_'] : #all_state_name:
+		all_state_name = [ 'andhrapradesh', 'arunachalpradesh', 'assam', 'bihar', 'chhattisgarh',   'haryana', 'himachalpradesh', 'jammuandkashmir', 'jharkhand', 'karnataka', 'ladakh', 'madhyapradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram', 'nagaland', 'odisha',  'rajasthan', 'sikkim',  'telangana', 'tripura', 'uttarakhand', 'uttarpradesh', 'westbengal_', 'punjab', 'kerala', 'gujarat_'  ]
+
+		for table_name in  ['westbengal_'] :#all_state_name:
 
 
 			table_name = table_name 
@@ -124,8 +166,10 @@ class LineData:
 				
 
 				gid = data[0]
+				print("gid = ", gid)
 				govt_lat_long_array = self.getLatLongListGovt( table_name , gid)
 				print("output  = ", govt_lat_long_array)
+
 
 
 				query = f"""
@@ -138,7 +182,7 @@ class LineData:
 
 				print(query)
 				sqlExecuter.execute(query)
-				# connection.commit() 
+				connection.commit() 
 
 		
 	def distance(self, lat1, lat2, lon1, lon2):
@@ -183,7 +227,7 @@ class LineData:
 		# print("answer Difference = ", answer_array) 
 
 
-		for data in answer_array[:]:
+		for data in answer_array[:10]:
 			
 			if data < 0.12:
 
@@ -191,9 +235,7 @@ class LineData:
 				# print("data = ", data)
 				return True 
 
-		# print("answer_array = Not match", answer_array)
 		return False 
-		# print(sorted(answer_array)[:5])
 
 
 	def compareGovtData(self):
@@ -203,151 +245,212 @@ class LineData:
 		start = int(input("Enter starting table = "))
 		end = int(input("Enter ending table = "))
 
-		for i in range(start, end):
-
-			
-			query = f"""
-
-					SELECT EXISTS (
-					SELECT FROM 
-						information_schema.tables 
-					WHERE 
-						table_schema  = 'line' AND 
-						table_name   = '{i}'
-					);
-			"""
-
-			sqlExecuter.execute(query)
-			result = sqlExecuter.fetchall()[0][0] 
+		try:
 
 
-			new_table_name = None 
+			for i in range(start, end):
+				
+				query = f"""
 
-			if result:
+						SELECT EXISTS (
+						SELECT FROM 
+							information_schema.tables 
+						WHERE 
+							table_schema  = 'line' AND 
+							table_name   = '{i}'
+						);
+				"""
 
-				table_path = f"""line."{i}" """
-				new_table_name = f'line_{i}'
-			else:
-
-				table_path = f""" edited_line . edited_{i} """
-				new_table_name = f'edited_line_{i}'
-
-
-
-			public_schema_name = 'public.punjab'
-			district_code = i #109 
-
-			query = f"""
-
-				ALTER TABLE IF EXISTS near_by_roads.{new_table_name}
-
-					ADD COLUMN if not exists near_by_gov_road_id integer[],
-					
-					add column if not exists check_road_name_flag integer default 0;
-
-			"""
-			sqlExecuter.execute(query)
-			connection.commit() 
-
-			query = f"""
-					select max(my_id) from near_by_roads.{new_table_name}
-			"""
-			sqlExecuter.execute(query)
-			total = sqlExecuter.fetchall()[0][0]
+				sqlExecuter.execute(query)
+				result = sqlExecuter.fetchall()[0][0] 
 
 
-			batch_size = 1000
+				new_table_name = None 
 
-			for batch in range(1, total + batch_size, batch_size):
+				if result:
 
-				print("Batch = ", batch)
+					table_path = f"""line."{i}" """
+					new_table_name = f'line_{i}'
+				else:
+
+					table_path = f""" edited_line . edited_{i} """
+					new_table_name = f'edited_line_{i}'
+
+				'''
+
+					'public.jammuandkashmir'  ---> 1 21 (done)
+					'public.madhyapradesh'   --->> 471  524 (Done)
+					'public.punjab'        ----> 34 , 56 (done)
+					'public.rajasthan'   --> 104 136  (done)
+					'public.sikkim' ->  250 253 _> (Done) 
+					'public.arunachalpradesh'   ->   254 , 279  (Done)
+					'public.nagaland' -> 280 -> 291 -> (done)
+					manipur = 292 - 305   (done)
+					uttarakhand ->>> 57 70 (done)
+					odisha 416 -> 445 (done)
+					chhattisgarh 446  470 (done)
+
+
+					himachalpradesh ->> 22 35 (running)
+					jharkhand 392 --> 415 (running)
+					'public.uttarpradesh' -> 137 -> 211 -> running 
+					'public.bihar' -> 211  249 -> running 
+
+					haryana -> 71 98		 (running) 
+					mizoram 306 317			(running) 
+					tripura 317 325			(running)
+					meghalaya 325  336		(running)
+					assam 336  368  		(running)
+
+				'''
+
+
+				public_schema_name = 'public.assam'
+				district_code = i #109 
+
+
+				if i in [393, 394, 395, 396, 397, 398, 399 ]: #tables are not present 
+					continue
 
 				query = f"""
+
+					ALTER TABLE IF EXISTS near_by_roads.{new_table_name}
+
+						ADD COLUMN if not exists near_by_gov_road_id integer[],
 						
-						select my_id, latitude, longitude  from near_by_roads.{new_table_name}
-						where (check_road_name_flag = 0 or check_road_name_flag is null) and(latitude is not null) and my_id between {batch} and {batch + batch_size} and near_by_gov_road_id is null
+						add column if not exists check_road_name_flag integer default 0;
 
 				"""
-			
-				
 				sqlExecuter.execute(query)
-				records = sqlExecuter.fetchall() 
+				connection.commit() 
 
-				for data in records:
-				
-					govt_ids = defaultdict(list)
-					line_my_id, line_lat, line_long = data 
-					
+				query = f"""
+						select max(my_id) from near_by_roads.{new_table_name}
+				"""
+				sqlExecuter.execute(query)
+				total = sqlExecuter.fetchall()[0][0]
+
+
+				#chekcing if query to be perform 
+
+				query = f"""
+
+				select count(*) from near_by_roads.{new_table_name}
+					where (check_road_name_flag = 0 or check_road_name_flag is null)
+					and near_by_gov_road_id is null
+				"""
+
+				print(f"near_by_roads.{new_table_name}")
+				sqlExecuter.execute(query)
+				records_without_check_road_flag = sqlExecuter.fetchall()[0][0]
+
+				if not records_without_check_road_flag: continue 
+
+				batch_size = 100
+
+				for batch in range(1, total + batch_size, batch_size):
+
+					print("Batch = ", batch)
+
 					query = f"""
-							select gid, lat_long_array 
-							from {public_schema_name}
-							WHERE
-							 lat_long_array is not null 
-							and 
-							dt_code = {district_code}
+							
+							select my_id, latitude, longitude  from near_by_roads.{new_table_name}
+							where (check_road_name_flag = 0 or check_road_name_flag is null) and(latitude is not null) and my_id between {batch} and {batch + batch_size} and near_by_gov_road_id is null
 
 					"""
-							# removing it for now from the main gov quey 
-					sqlExecuter.execute(query)
-					line_records = sqlExecuter.fetchall()
-
-					for data in line_records:
-
-						gid, lat_long_array = data 
-
-						output = self.getLatLonDifference(gid, lat_long_array, line_lat, line_long) 
-
-
-						if output:
-							print("We got the Id ")
-							govt_ids[line_my_id].append(gid)
 				
-					#updating Gov_ids into Linedata 
+					
+					sqlExecuter.execute(query)
+					records = sqlExecuter.fetchall() 
+
+					for data in records:
+					
+						govt_ids = defaultdict(list)
+						line_my_id, line_lat, line_long = data 
+						
+						query = f"""
+								select gid, lat_long_array 
+								from {public_schema_name}
+								WHERE
+								lat_long_array is not null 
+								
+								and 
+								dt_code = {district_code}
+
+						"""
+								# removing it for now from the main gov quey 
+						sqlExecuter.execute(query)
+						line_records = sqlExecuter.fetchall()
+
+						for data in line_records:
+
+							gid, lat_long_array = data 
+
+							output = self.getLatLonDifference(gid, lat_long_array, line_lat, line_long) 
 
 
-					print("Final Govt_ids_nearby = ", govt_ids)
-					if govt_ids[line_my_id]:
+							if output:
+								print("We got the Id ")
+								govt_ids[line_my_id].append(gid)
+					
+						#updating Gov_ids into Linedata 
+
+
+						print("Final Govt_ids_nearby = ", line_my_id, govt_ids)
+						if govt_ids[line_my_id]:
+
+
+							query = f"""
+
+							update near_by_roads.{new_table_name}
+							set near_by_gov_road_id = Array {govt_ids[line_my_id]}
+							where my_id = {line_my_id}
+							"""
+
+							sqlExecuter.execute(query)
+							connection.commit() 
+							print("gov Road Ids = ",govt_ids[line_my_id] )
 
 
 						query = f"""
 
 						update near_by_roads.{new_table_name}
-						set near_by_gov_road_id = Array {govt_ids[line_my_id]}
+						set 
+						check_road_name_flag = 1
 						where my_id = {line_my_id}
 						"""
 
 						sqlExecuter.execute(query)
 						connection.commit() 
-						print("gov Road Ids = ",govt_ids[line_my_id] )
+
+					print("Done!!!")
+
+		except Exception as e:
+
+			print(str(e))
+			slackAlert(f"{start}, {end} \t" + str(e))
+	
+		else:
+			slackAlert(f"Successfully Added Road Name in Line  data !!! {start}, {end}")
+
+		
 
 
-					query = f"""
-
-					update near_by_roads.{new_table_name}
-					set 
-					check_road_name_flag = 1
-					where my_id = {line_my_id}
-					"""
-
-					sqlExecuter.execute(query)
-					connection.commit() 
-
-				print("Done!!!")
 
 
 	def addDtCode(self):
 
 		sqlExecuter, connection = self.makeConnection() 
-		# gujarat_, punjab , 'kerala'
-		all_state_name = [ 'andhrapradesh', 'arunachalpradesh', 'assam', 'bihar', 'chhattisgarh',   'haryana', 'himachalpradesh', 'jammuandkashmir', 'jharkhand', 'karnataka', 'ladakh', 'madhyapradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram', 'nagaland', 'odisha',  'rajasthan', 'sikkim',  'telangana', 'tripura', 'uttarakhand', 'uttarpradesh', 'westbengal_']
+		# gujarat_, punjab , 'kerala', 'westbengal_',
+		all_state_name = [ 'andhrapradesh', 'arunachalpradesh', 'assam', 'bihar', 'chhattisgarh',   'haryana', 'himachalpradesh', 'jammuandkashmir', 'jharkhand', 'karnataka', 'ladakh', 'madhyapradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram', 'nagaland', 'odisha',  'rajasthan', 'sikkim',  'telangana', 'tripura', 'uttarakhand', 'uttarpradesh',  'punjab', 'kerala', 'gujarat_'  ]
 
 
 		# start = int(input("enter array start index "))
 		# end = int(input("enter array end index "))
 
 		# for table_name in all_state_name[start: end]:
+		for table_name in all_state_name:
 
-		for table_name in ['westbengal_']:
 				
 			schema_name = f'public.{table_name}'
 
@@ -481,7 +584,7 @@ class LineData:
 
 			for batch in range(1, total + 1, batch_size):
 
-				if batch > total: break 
+			
 
 				query = f"""
 
@@ -489,7 +592,6 @@ class LineData:
 					where converted_lat_long_flag = 0 
 					and
 					my_id  between {batch} and {batch_size + batch}				
-					order by my_id	
 				"""
 
 
@@ -605,7 +707,7 @@ class LineData:
 			distinct_dt_codes = sqlExecuter.fetchall() 
 
 			for dt_code in distinct_dt_codes:
-				# print(table_name, "\t", dt_code)
+				print(table_name, "\t", dt_code)
 
 				# hash[table_name].append(dt_code[0])
 				hash[dt_code[0]].append(table_name)
@@ -619,9 +721,10 @@ class LineData:
 
 if __name__ == '__main__':
 
+			
 	line_object = LineData() 
 	
-	line_object.recheckQueries()
+	# line_object.recheckQueries()
 
 	#also add list of lat long from geom ex- Gov raj, punjab 
 	# line_object.updateGovernmentLatLongArray() #all Done 
@@ -634,5 +737,6 @@ if __name__ == '__main__':
 	
 	
 	#step 3 Fetch line data and search 12 meters within points
-	# line_object.compareGovtData() 
+	line_object.compareGovtData() 
+	
 

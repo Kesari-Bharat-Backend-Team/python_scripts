@@ -285,13 +285,63 @@ class LineData:
 
 
 	
+	def countDuplicateFlag(self):
+
+		sqlExecuter, connection = self.makeConnection() 
+
+
+		start, end = 630, 736
+
+
+		total = 0 
+		for i in range(start, end):
+			
+			query = f"""
+
+					SELECT EXISTS (
+					SELECT FROM 
+						information_schema.tables 
+					WHERE 
+						table_schema  = 'line' AND 
+						table_name   = '{i}'
+					);
+			"""
+			sqlExecuter.execute(query)
+			result = sqlExecuter.fetchall()[0][0] 
+
+			if result:
+
+				table_path = f"""line."{i}" """
+
+			else:
+
+				table_path = f""" edited_line . edited_{i} """
+
+			
+
+			query = f"""
+
+			select count(*) from {table_path}
+			where duplicate_flag = 1
+			"""
+
+			sqlExecuter.execute(query)
+			records = sqlExecuter.fetchall()[0][0]
+
+			print(table_path, " \t total_duplicates  = ", records)
+			total += records
+		
+		print("Total Duplicates = ", total)
 
 
 if __name__ == '__main__':
 
 	line_object = LineData() 
+	
+	line_object.countDuplicateFlag()
 	# line_object.dropColumns()
-	line_object.dropColumnsInBuildingPolygons()
+
+	# line_object.dropColumnsInBuildingPolygons()
 	# line_objec
 
 

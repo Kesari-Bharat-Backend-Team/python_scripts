@@ -13,7 +13,7 @@ def slackAlert(message = 'This is a test message'):
     
     url = "https://hooks.slack.com/services/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"
     # message = ("")
-    title = (f"New Incoming Message :zap:")
+    title = (f"Server Script's Alert :zap:")
     slack_data = {
         "username": "NotificationBot",
         "icon_emoji": ":satellite:",
@@ -50,12 +50,14 @@ class LineData:
 		self.database = 'Kesari_bharat'
 		self.port = 5432
 
+
 	def makeConnection(self):
 
 		connection = psycopg2.connect(host=self.hostname, user=self.username, password=self.password, dbname=self.database, port=self.port)
 		sqlExecuter = connection.cursor()
 		return sqlExecuter, connection 
-	
+
+
 	def distance(self, lat1, lat2, lon1, lon2):
 	
 		# The math module contains a function named
@@ -109,6 +111,7 @@ class LineData:
 
 		return temp_array
 
+
 	def getLatLonDifference(self, arr1, arr2):
 
 		answer_array = []
@@ -133,80 +136,6 @@ class LineData:
 				return False 
 		print(answer_array)
 		return True 
-
-
-	def deleteDuplicateRoadName(self):
-
-
-		sqlExecuter, connection = self.makeConnection() 
-		
-		start = int(input("Enter start = "))
-		end = int(input("Enter end = "))
-
-
-		try:
-
-
-			for i in range(start, end):
-
-				if i in [1, 392, 439]: continue
-
-				query = f"""
-
-						SELECT EXISTS (
-						SELECT FROM 
-							information_schema.tables 
-						WHERE 
-							table_schema  = 'line' AND 
-							table_name   = '{i}'
-						);
-				
-				"""
-
-				sqlExecuter.execute(query)
-				result = sqlExecuter.fetchall()[0][0] 
-
-				if result:
-
-					table_path = f"""line."{i}" """
-
-				else:
-
-					table_path = f""" edited_line.edited_{i} """
-
-
-
-				query = f"""
-
-					delete  FROM {table_path}
-
-					where 
-				 duplicate_flag = 1;
-
-				"""
-
-				sqlExecuter.execute(query)
-				connection.commit() 
-
-				print("delted ", query)
-
-				# records = sqlExecuter.fetchall()
-				# print("duplicate = ", records)
-
-
-				# slackAlert(f"Successfully Deleted Duplicate data in {start}, {end} " )
-				
-
-		except Exception as e:
-			slackAlert(f" Exception in  {start}, {end} " )
-			print("We got an error ", str(e))
-
-		finally:
-			slackAlert(f"Successfully Deleted duplicate road data all" )
-
-
-
-
 
 
 	def removeDuplicateRoads(self):
@@ -368,13 +297,243 @@ class LineData:
 			print(" Deleted Dupicate data.  -->>>  Done!!!", start, end)
 
 
+	def countandDeleteDuplicateRoads(self):
+
+		sqlExecuter, connection = self.makeConnection() 
+
+
+		start = int(input("Enter starting table = "))
+		end = int(input("Enter ending table = "))
+
+
+		for i in range(start, end):
+		
+			query = f"""
+
+					SELECT EXISTS (
+					SELECT FROM 
+						information_schema.tables 
+					WHERE 
+						table_schema  = 'line' AND 
+						table_name   = '{i}'
+					);
+			"""
+			sqlExecuter.execute(query)
+			result = sqlExecuter.fetchall()[0][0] 
+
+			table_name = ''
+			schema_name = ''
+
+			if result:
+				schema_name = 'line'
+				table_name = f'"{i}"'
+
+			else:
+
+				schema_name = 'edited_line'
+				table_name = f'edited_{i}'
+
+			table_path = f""" {schema_name} .{table_name} """
+
+
+
+			query = f"""
+
+					SELECT column_name 
+					FROM information_schema.columns 
+					WHERE 
+						table_schema  = '{schema_name}' 
+						and table_name = '{table_name}' 
+					and column_name='checkduplicateflag_new';
+
+			"""
+
+			sqlExecuter.execute(query)
+			is_checkduplicateflag_new_present = sqlExecuter.fetchall() 
+
+
+			if not is_checkduplicateflag_new_present: continue
+
+
+			query = f"""
+
+						
+			update {table_path}
+			set checkduplicateflag_new = 0
+			where checkduplicateflag_new = 1
+
+			"""
+				# select count(*) from {table_path}
+				# where duplicate_flag = 1
+			print(query)
+			sqlExecuter.execute(query)
+			connection.commit() 
+			print(table_path)
+			
+			# records = sqlExecuter.fetchall()[0][0]
+
+			# print(table_path, " = ", records)
+
+
+	def addRaodNamesfromNearByRoads(self):
+
+		sqlExecuter, connection = self.makeConnection()
+
+		start, end  = 110, 111
+		
+
+		for i in range(start, end):
+
+
+			query = f"""
+
+				SELECT EXISTS (
+
+								SELECT FROM 
+
+									information_schema.tables 
+					
+								WHERE 
+					
+									table_schema  = 'near_by_roads' AND 
+									table_name   = 'edited_line_{i}'
+					
+								);
+
+			"""
+
+			sqlExecuter.execute(query)
+			result = sqlExecuter.fetchall()[0][0]
+
+			schema_name = "" #line or edited_line
+			near_by_roads_path = ""
+
+			if result:
+
+				schema_name = f'edited_line.edited_{i}'
+				near_by_roads_path = f"near_by_roads.edited_line_{i}"
+
+			else:
+
+				schema_name = f""" line."{i}" """
+				near_by_roads_path = f"near_by_roads.line_{i}"
+			
+
+			query = f"""
+
+				alter table {near_by_roads_path}
+				add column if not exists added_road_name_flag integer default 0;
+
+			"""
+			
+			sqlExecuter.execute(query)
+			# connection.commit() 
+
+			#add 3 columns in road data 
+
+			query = f"""
+
+				alter table {schema_name}
+				add column if not exists gov_drrp_road_id character varying(100),
+				add column if not exists gov_road_category character varying(100),
+				add column if not exists gov_road_name character varying(100);
+
+			"""
+
+			sqlExecuter.execute(query)
+			# connection.commit()
+
+
+			query = f"""
+
+				select old_my_id, my_id, near_by_gov_road_id from
+				{near_by_roads_path}
+				where near_by_gov_road_id is not null and
+				added_road_name_flag = 0 
+				limit 1
+
+			"""
+			sqlExecuter.execute(query)
+			print(query)
+
+			records = sqlExecuter.fetchall()
+
+			for data in records:
+
+				old_my_id, my_id, near_by_gov_road_array = data 
+
+				arr1 = self.getLatLongList(schema_name, old_my_id)
+				# state_name = self.pointInPolygon(latitude, longitude)
+				state_name = 'rajasthan'
+
+
+				for near_by_id in near_by_gov_road_array:
+
+					#get data from gov 
+
+
+					query = f"""
+
+						select drrp_road_, roadcatego, roadname, lat_long_array   from public.{state_name}
+						where gid = {near_by_id} 
+
+					"""
+
+					sqlExecuter.execute(query)
+
+					gov_records = sqlExecuter.fetchall()[0]
+
+					gov_drrp_road_id, gov_road_category, gov_road_name, arr2 = gov_records
+
+					is_duplicate = self.getLatLonDifference(arr1, arr2)
+
+
+					if is_duplicate:
+
+						print("This road is nearby ")
+
+
+						inserted_values =  tuple([gov_drrp_road_id, gov_road_category, gov_road_name])
+
+
+						query = f"""
+
+							UPDATE   {schema_name}
+							SET 
+
+								gov_drrp_road_id = '{gov_drrp_road_id}',
+								gov_road_category = '{gov_road_category}',
+								gov_road_name = '{gov_road_name}'
+							WHERE
+								my_id = {old_my_id}
+
+
+						"""
+					else:
+						print("no nearbys")
+
+
+						# sqlExecuter.execute(query)
+					
+				#update added_road_name_flag
+
+				query = f"""
+
+
+				update added_road_name_flag
+
+				"""
+
+
+
+
 if __name__ == '__main__':
 		
 
 	line_object = LineData() 
 	# line_object.removeDuplicateRoads() 
-	line_object.deleteDuplicateRoadName()
-
+	line_object.addRaodNamesfromNearByRoads() 
+	
 
 
 
